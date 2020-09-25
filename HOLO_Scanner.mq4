@@ -69,7 +69,7 @@ void OnTimer()
    int offsetX = ButtonsStartX;
    int offsetY= ButtonsStartY;
    
-   for(int i=0; i<ArraySize(PairList)-1; i++) {
+   for(int i=0; i<ArraySize(PairList); i++) {
       CheckForSignal(PairList[i]+BrokerSuffix);
       DrawPairButton(PairList[i], offsetX, offsetY);
       
@@ -197,7 +197,7 @@ void OnChartEvent(const int id,
 }
 
 void DeleteAllButtons() {
-    for(int i=0; i<ArraySize(PairList)-1; i++) {
+    for(int i=0; i<ArraySize(PairList); i++) {
       ObjectDelete(PairList[i]);
    }
 }
