@@ -15,13 +15,18 @@ extern string BrokerSuffix = "-g";
 extern ENUM_TIMEFRAMES EntryPeriod = PERIOD_M15;
 extern int ScanFrequency = 5;
 extern bool ShowAlerts = true;
+extern bool ShowRecentAlertsOnChart = true;
 extern string ChartTemplateName = "HOLO";
 extern int ButtonsStartX = 120;
 extern int ButtonsStartY = 120;
 
 string PairList[];
 string Alerts[];
+string AlertLabels[];
 string Signals[];
+string Breakouts[];
+
+string lblRecentAlerts = "lblRecentAlerts";
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -50,6 +55,7 @@ void OnDeinit(const int reason)
    EventKillTimer();
    DeleteAllButtons();
    DeleteLabels();
+   DeleteAlerts();
   }
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -81,12 +87,16 @@ void OnTimer()
       }
    }
    
+   DeleteAlerts();
+   DrawAlerts();
+   
   }
 //+------------------------------------------------------------------+
 
 void CheckForSignal(string symbol) {
 
    ArrayFree(Signals);
+   ArrayFree(Breakouts);
    
    int barShift = iBarShift(symbol, PERIOD_H1, iTime(symbol, PERIOD_D1, 0)) + 1;
 
@@ -103,15 +113,25 @@ void CheckForSignal(string symbol) {
   
    
    if (iOpen(symbol, EntryPeriod, 0) > OpenHigh && iHigh(symbol, PERIOD_H1, 0) < DailyHigh) {
-      ShowAlert(symbol, (string)iOpen(symbol, EntryPeriod, 0), "SHORT");
+      ShowAlert(symbol, iTime(symbol, EntryPeriod, 0), "SHORT");
       ArrayResize(Signals, ArraySize(Signals) + 1);
       Signals[ArraySize(Signals)-1] = symbol;
+      
+      if (DailyHigh > iHigh(symbol, PERIOD_D1, 1)) {
+         ArrayResize(Breakouts, ArraySize(Breakouts) + 1);
+         Breakouts[ArraySize(Breakouts)-1] = symbol;
+      }
    }
    
    if (iOpen(symbol, EntryPeriod, 0) < OpenLow && iLow(symbol, PERIOD_H1, 0) > DailyLow) {
-      ShowAlert(symbol, (string)iOpen(symbol, EntryPeriod, 0), "LONG");
+      ShowAlert(symbol, iTime(symbol, EntryPeriod, 0), "LONG");
       ArrayResize(Signals, ArraySize(Signals) + 1);
       Signals[ArraySize(Signals)-1] = symbol;
+      
+      if (DailyLow < iLow(symbol, PERIOD_D1, 1)) {
+         ArrayResize(Breakouts, ArraySize(Breakouts) + 1);
+         Breakouts[ArraySize(Breakouts)-1] = symbol;
+      }
    }
    
 }
@@ -119,12 +139,14 @@ void CheckForSignal(string symbol) {
 void ShowAlert(string symbol, datetime time, string message) {
    
    if (!ShowAlerts) return;
-
-   string id = symbol+(string)time+message;
+   
+   string dt = TimeToString(time, TIME_MINUTES);
+   StringReplace(symbol, BrokerSuffix, "");
+   string id = symbol + " - " + dt + " - " + message;
    if(ArraySearch(Alerts, id) < 0) {
       ArrayResize(Alerts, ArraySize(Alerts)+1);
       Alerts[ArraySize(Alerts)-1] = id;
-      Alert(symbol + "  -  ", time + "  -  ", message);
+      Alert(symbol + "  -  ", dt + "  -  ", message);
    }
 }
 
@@ -138,7 +160,9 @@ int ArraySearch(string& array[], string value) {
 
 void DrawPairButton(string symbol, int x, int y) {
    bool signal = ArraySearch(Signals, symbol + BrokerSuffix) > -1;
-   CreateButton(symbol, symbol, x, y, 100, 30, signal ? clrSpringGreen : C'236,233,216');
+   bool breakout = ArraySearch(Breakouts, symbol + BrokerSuffix) > -1;
+   
+   CreateButton(symbol, symbol, x, y, 100, 30, signal ? (breakout ? clrOrange : clrSpringGreen) : C'236,233,216');
 }
 
 void CreateButton(string name, string label, int x, int y, int width, int height,
@@ -229,6 +253,32 @@ void DrawLabels() {
    DrawLabel(lblScanning, "Scanning every " + (string)ScanFrequency + " seconds", clrWhiteSmoke, 10, 10, 92);
 }
 
+void DrawAlerts() {
+   if (ShowRecentAlertsOnChart) {
+   
+      DrawLabel(lblRecentAlerts,"Recent Alerts", clrWhite, 10, 10, 160, "Arial Bold"); 
+      ArrayFree(AlertLabels);
+      int count=1;
+      for(int i=ArraySize(Alerts)-1; i>=0; i--) {
+         string lblAlert = "Alert"+count;
+         
+         ArrayResize(AlertLabels, ArraySize(AlertLabels)+1);
+         AlertLabels[ArraySize(AlertLabels)-1] = lblAlert;
+         
+         DrawLabel(lblAlert, Alerts[i], clrWhite, 9, 10, 168+(14*count)); 
+         count++;
+         if (count>10) return;
+      }
+   }
+}
+
+void DeleteAlerts() {
+   ObjectDelete(lblRecentAlerts);
+   for(int i=0; i<ArraySize(AlertLabels); i++) {
+      ObjectDelete(AlertLabels[i]);
+   }
+}
+
 void DrawTimeFrameButtons() {
    string period = EnumToString(EntryPeriod);
    StringReplace(period, "PERIOD_", "");
@@ -274,3 +324,4 @@ void DrawLabel(string name, string text, color colour, int size, int x, int y, s
       ObjectSet(name, OBJPROP_ANCHOR, ANCHOR_RIGHT);
    }
 }
+
