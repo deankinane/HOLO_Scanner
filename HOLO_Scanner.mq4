@@ -6,7 +6,7 @@
 
 #property copyright "Copyright 2020, Aeson"
 #property link      "https://www.forexfactory.com/aeson"
-#define VERSION "1.00"
+#define VERSION "1.01"
 #property version VERSION
 #property strict
 
